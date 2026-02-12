@@ -1,0 +1,159 @@
+#### 响应式系统
+- reactive和ref的区别
+	- 定义
+		- reactive只能定义对象类型, 不能定义基本数据类型.
+		- ref可以定义所有类型
+	- 访问
+		- reactive可以直接访问对象的属性如`state.count`. 但不能直接替换整个对象, 响应性会丢失
+		- ref需通过`.value`来访问或修改数据. 但在template中会自动解包不需要写.value
+	- 底层机制
+		- reactive是基于es6的proxy实现的. 直接代理整个对象, 拦截对象的增删改查
+		- ref
+			- 如果是基本数据类型, 就创建一个包含value属性的包装对象, 通过get/set拦截对value的访问
+			- 如果是对象类型, 内部调用reactive将其转化为响应式代理对象
+- 响应式系统
+	- 解决的问题
+		- 数据绑定: 保证数据和视图同步, 数据变了, 视图自动更新, 无需手动操作dom
+		- 依赖追踪: vue可以追踪每个数据的依赖关系, 即哪些组件或者动态属性用到了数据. 当数据变化时, 自动更新依赖的组件或者动态属性
+	- vue2的双向绑定
+		- 采取数据劫持配合发布-订阅模式
+		- 初始化: 初始化时, 遍历对象的所有属性, 使用Object.defineProperty将其转化为getter和setter
+		- 依赖收集: 当页面渲染或读取数据时, 触发getter, 进行依赖收集
+		- 派发更新: 当数据修改时, 触发setter, 通知收集的依赖重新渲染视图
+		- 缺陷
+			- 无法监听新增/删除属性. defineProperty只能劫持初始化存在的属性, 所以vue2需提供`$set`和`$delete`API
+			- 无法拦截数组索引操作, 如修改数组某个索引的值页面不会发生变化, vue2通过重写了数组的方法解决这个问题
+			- 性能开销较大, 初始化会遍历data中的所有属性
+	- vue3的双向绑定
+		- 改用es6的Proxy, 直接代理整个对象
+		- 全方位拦截, 可以监听对象的增删改查
+		- 支持数组, 可以完美监听数组变化, 无需重写数组方法
+		- 性能更好, 采取懒代理, 无需在初始化递归遍历所有属性, 只有在访问到深层属性才会代理
+		- 缺点
+			- 性能开销: 因为是懒代理, 所以初始化比较快, 但在运行时首次访问较深层的对象属性时, 会有大量的proxy创建操作, 会带来瞬时的性能压力
+			- 如果对象继承自另一个非响应式的对象, 那么访问该对象原型链上的属性不会被Proxy拦截, 无法建立响应式依赖
+- 虚拟DOM (VDOM)
+	- 本质是js对象, 它用属性（如 `tag`, `props`, `children`）来描述真实的 DOM 结构
+	- 优势
+		- 操作dom非常昂贵. 虚拟dom可以在内存中快速比较计算差异, 通过diff算法比较新旧dom的变化, 只更新必要部分, 同时将多次dom操作合并成一次, 减少更新操作的次数与范围, 减少回流/重绘, 提升性能
+			- 只是性能下限有保证, 因为还有构建vdom的开销, 能保证大规模更新操作性能不会开销太大
+		- 跨平台的能力: 因为只是js对象, 所以不仅可以当做浏览器的dom, 也可以当做安卓/ios的原生组件
+- diff算法
+	- 对比新旧两颗虚拟dom树, 找出差异, 生成补丁更新真实dom
+	- 宏观策略 (复杂度从O(n^3) 降至 O(n))
+		- 分层比较: 只比较同一层级的节点, 不跨层比较. 如父节点发生变化, 直接销毁重新创建, 因为真实业务中很少出现跨层级移动的现象
+		- 类型判断: 标签发生变换如div变成p, 直接销毁旧的节点建立新的节点
+		- 列表对比: 对比列表如v-for产生的列表时, 通过key来判断节点是否可以复用, 而不是删除重建
+			- key是虚拟dom节点的唯一标识, 若没有key, 例如在列表头部插入一个数据, vue会认为列表所有节点都发生变化, 所有节点都更新一遍, 如果列表中有输入框, 输入框的位置不会变化从而状态错乱(diff没有对dom进行删除重建而是就地复用). 如果有key, vue得知列表的其余节点只是发生了移动, 只会对真实dom节点进行移动, 不会销毁重建,大大提升性能
+	- vue2/3中diff算法的区别
+		- vue2: 双端比较
+			- 维护四个指针: 新头,旧头,新尾,旧尾 两两进行对比
+		- vue3: 最长递增子序列
+			- 更适合处理乱序节点, 计算最少移动次数的方案
+- 整个响应式流程
+	- 编译阶段
+		- 读取template, 解析成AST抽象语法树
+		- 遍历AST, 找出静态节点(永远不会变的数据, 如纯文本), 后续的diff算法会直接跳过静态节点的对比
+		- 把AST语法树转换成渲染函数 Render Function(每个组件有一个)
+			- `_c` 创建虚拟dom节点
+			- `_v` 创建纯文本节点
+			- `_s` 将数据转化为字符串
+			- `_l` 处理v-for指令生成列表
+	- 挂载阶段
+		- 执行setup函数, 将ref和reactive包装成proxy对象
+		- 为每个组件创建渲染副作用 Render Effect. 
+		- render effect 执行 render function, 当读取到响应式数据, Proxy的get拦截并收集该组件为依赖
+		- render function执行结束的产物是虚拟dom树, 将vdom遍历挂载到真实dom中进行渲染
+	- 更新阶段
+		- 当响应式数据发生变更, proxy的set拦截并进行该数据的依赖查询
+		- 把更新任务放置微任务队列中(nextTick机制)
+		- 队列清空时, render effect再次执行render function, 生成虚拟dom树
+		- diff算法进行新旧vdom对比, 只对真正改变的dom进行更新
+
+#### 组件系统
+- 组件的生命周期
+	- 创建
+		- vue2: beforeCreate, created
+		- vue3: setup()
+		- `setup`: 此时拿不到dom, 适合初始化非响应式数据, 或者简单的同步逻辑
+	- 挂载
+		- vue2: beforeMount, mounted
+		- vue3: onBeforeMount, onMounted
+		- `onMounted`: 实例挂载到dom上后调用, 适合发送axios请求, 操作dom, 绑定自定义事件
+	- 更新
+		- vue2: beforeUpdate, updated
+		- vue3: onBeforeUpdate, onUpdated
+		- `onUpdated`: 数据变化导致视图更新. 不要在updated修改响应式数据, 会造成无限循环
+	- 销毁
+		- vue2: beforeDestory, destoryed
+		- vue3: onBeforeUnmount, onUnmounted
+		- `onBeforeUnmount`: 此时组件实例仍然可用, 组件销毁(v-if="false", 路由切换, 父组件销毁触发)之前触发, 需要清除定时器, 解绑window全局事件监听, 销毁第三方库实例, 组件销毁这些也不会销毁, 清除防止内存泄露
+- 组件通信
+	- 父子之间通信
+		- props: 父组件通过属性绑定传递数据, 子组件通过defineProps接收
+			- 严格遵循单向数据流
+		- emits: 子组件通过defineEmits定义触发事件emit, 父组件@监听该事件来接受数据或者执行逻辑
+		- template refs / defineExpose: 父组件通过ref获取子组件的实例, 子组件使用defineExpose暴露父组件可使用的属性和方法, 适合父组件调用子组件内部方法
+	- 跨级通信
+		- provide/inject: 祖先组件通过provide传递数据, 任意后代都可以使用inject接受数据, 适合主题设置, 通用组件库等
+	- 全局组件通信
+		- pinia/vuex
+			- 将数据封装在全局的store中, 任何组件都可以读取与修改
+			- 适合用户信息, 购物车数据, 全局loading状态
+	- 传递html结构/UI片段
+		- 插槽(父->子)
+			- 默认插槽/具名插槽: 父组件决定子组件内部显示什么结构
+			- 作用域插槽: 子组件会将数据传给父组件使用
+	- 除了emits主要用于事件通知外, 其他都可以传递响应式数据
+
+#### 状态管理与路由
+- vuex
+	- 组件通过dispatch触发actions, actions通过commit触发mutation, 只有mutation才可以修改state
+	- 缺陷
+		- 即使是简单的修改, 也必须走完整的流程, 代码量较大
+		- 处理模块化时需要手动配置modules, 较为繁琐
+- pinia
+	- 更简化的概念
+		- 使用三个概念: State（存状态）、Getters（计算属性/缓存）、Actions（做业务逻辑/改状态)
+		- 它彻底移除了 Mutations，这让代码更加简洁，Actions 可以直接修改 State
+	- 更好的typescript支持: pinia天然支持类型推断
+	- 天然模块化: 每一个store是彼此独立的, 无需像vuex手动拆分modules
+	- 轻量级: 体积更小, 支持热更新
+- router
+	- 原理
+		- 监控url的变化动态渲染对应的组件, 动态地挂载与销毁dom, 实现单页应用(SPA)的页面跳转而不刷新页面
+	- 路由模式
+		- Hash模式
+			- `history: createWebHashHistory()`
+			- 特点: url带有`#`, 如`http://site.com/#/home`, 浏览器兼容性好, `#`后面的内容不会发给服务器, 且后端无需进行配置
+			- 原理: 利用浏览器原生`hashchange`事件监听url hash
+		- History模式
+			- `history: createWebHistory()`
+			- 特点: url更像普通路径, 如`http://site.com/home`, url更美观, SEO友好
+				- 需要后端配合配置, 因为如果在`http://site.com/home`刷新页面, 浏览器会去请求对应的home资源, 服务器会报404. 因此需要后端配置所有404都重定向到index.html
+			- 原理: 利用html5中的historyAPI中的`pushState()`和`replaceState()`来修改url且不触发页面刷新, 同时监听`popState()`事件来处理浏览器的前进后退
+	- 导航守卫
+		- 全局守卫
+			- beforeEach(to, from, next)
+				- 全局前置守卫, 用于身份验证
+			- afterEach(to, from)
+				- 导航已确认并完成跳转时触发, 用于埋点统计, 关闭全局loading动画
+		- 路由独享守卫
+			- beforeEnter: (to, from, next) => {} 
+				- 直接定义在路由配置中
+				- 在全局beforeEach后, 在组件内beforeRouteEnter前触发
+				- 针对某个特定路由进行拦截, 如果有两个路由都指向同一个组件, 但只有一个路由需要守卫拦截, 可设置路由独享守卫
+		- 组件内守卫
+			- beforeRouteEnter(to, from, next)
+				- 组件实例未创建时
+				- vue3已取消, 与setup逻辑相似
+			- beforeRouteUpadte/onBeforeRouteUpdate(to, from, next)
+				- 当前路由改变, 但该组件被复用时. 动态路由传参, 如如从 `/user/1` 跳到 `/user/2`
+				- 需要获取该钩子函数to的参数, 重新发送请求更新页面数据, 否则页面不刷新
+			- beforeRouteLeave/onBeforeRouteLeave(to, from, next)
+				- 导航离开该组建对应的路由时调用
+				- 适合表单的未保存更改的提示
+
+
+
+#### 指令与API
