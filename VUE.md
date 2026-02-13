@@ -105,8 +105,9 @@
 			- 默认插槽/具名插槽: 父组件决定子组件内部显示什么结构
 			- 作用域插槽: 子组件会将数据传给父组件使用
 	- 除了emits主要用于事件通知外, 其他都可以传递响应式数据
+- keep-alive
 
-#### 状态管理与路由
+#### Pinia
 - vuex
 	- 组件通过dispatch触发actions, actions通过commit触发mutation, 只有mutation才可以修改state
 	- 缺陷
@@ -119,40 +120,61 @@
 	- 更好的typescript支持: pinia天然支持类型推断
 	- 天然模块化: 每一个store是彼此独立的, 无需像vuex手动拆分modules
 	- 轻量级: 体积更小, 支持热更新
-- router
-	- 原理
-		- 监控url的变化动态渲染对应的组件, 动态地挂载与销毁dom, 实现单页应用(SPA)的页面跳转而不刷新页面
-	- 路由模式
-		- Hash模式
-			- `history: createWebHashHistory()`
-			- 特点: url带有`#`, 如`http://site.com/#/home`, 浏览器兼容性好, `#`后面的内容不会发给服务器, 且后端无需进行配置
-			- 原理: 利用浏览器原生`hashchange`事件监听url hash
-		- History模式
-			- `history: createWebHistory()`
-			- 特点: url更像普通路径, 如`http://site.com/home`, url更美观, SEO友好
-				- 需要后端配合配置, 因为如果在`http://site.com/home`刷新页面, 浏览器会去请求对应的home资源, 服务器会报404. 因此需要后端配置所有404都重定向到index.html
-			- 原理: 利用html5中的historyAPI中的`pushState()`和`replaceState()`来修改url且不触发页面刷新, 同时监听`popState()`事件来处理浏览器的前进后退
-	- 导航守卫
-		- 全局守卫
-			- beforeEach(to, from, next)
-				- 全局前置守卫, 用于身份验证
-			- afterEach(to, from)
-				- 导航已确认并完成跳转时触发, 用于埋点统计, 关闭全局loading动画
-		- 路由独享守卫
-			- beforeEnter: (to, from, next) => {} 
-				- 直接定义在路由配置中
-				- 在全局beforeEach后, 在组件内beforeRouteEnter前触发
-				- 针对某个特定路由进行拦截, 如果有两个路由都指向同一个组件, 但只有一个路由需要守卫拦截, 可设置路由独享守卫
-		- 组件内守卫
-			- beforeRouteEnter(to, from, next)
-				- 组件实例未创建时
-				- vue3已取消, 与setup逻辑相似
-			- beforeRouteUpadte/onBeforeRouteUpdate(to, from, next)
-				- 当前路由改变, 但该组件被复用时. 动态路由传参, 如如从 `/user/1` 跳到 `/user/2`
-				- 需要获取该钩子函数to的参数, 重新发送请求更新页面数据, 否则页面不刷新
-			- beforeRouteLeave/onBeforeRouteLeave(to, from, next)
-				- 导航离开该组建对应的路由时调用
-				- 适合表单的未保存更改的提示
+
+#### Router
+- 原理
+	- 监控url的变化动态渲染对应的组件, 动态地挂载与销毁dom, 实现单页应用(SPA)的页面跳转而不刷新页面
+- 路由模式
+	- Hash模式
+		- `history: createWebHashHistory()`
+		- 特点: url带有`#`, 如`http://site.com/#/home`, 浏览器兼容性好, `#`后面的内容不会发给服务器, 且后端无需进行配置
+		- 原理: 利用浏览器原生`hashchange`事件监听url hash
+	- History模式
+		- `history: createWebHistory()`
+		- 特点: url更像普通路径, 如`http://site.com/home`, url更美观, SEO友好
+			- 需要后端配合配置, 因为如果在`http://site.com/home`刷新页面, 浏览器会去请求对应的home资源, 服务器会报404. 因此需要后端配置所有404都重定向到index.html
+		- 原理: 利用html5中的historyAPI中的`pushState()`和`replaceState()`来修改url且不触发页面刷新, 同时监听`popState()`事件来处理浏览器的前进后退
+- 导航守卫
+	- 全局守卫
+		- beforeEach(to, from, next)
+			- 全局前置守卫, 用于身份验证
+		- afterEach(to, from)
+			- 导航已确认并完成跳转时触发, 用于埋点统计, 关闭全局loading动画
+	- 路由独享守卫
+		- beforeEnter: (to, from, next) => {} 
+			- 直接定义在路由配置中
+			- 在全局beforeEach后, 在组件内beforeRouteEnter前触发
+			- 针对某个特定路由进行拦截, 如果有两个路由都指向同一个组件, 但只有一个路由需要守卫拦截, 可设置路由独享守卫
+	- 组件内守卫
+		- beforeRouteEnter(to, from, next)
+			- 组件实例未创建时
+			- vue3已取消, 与setup逻辑相似
+		- beforeRouteUpadte/onBeforeRouteUpdate(to, from, next)
+			- 当前路由改变, 但该组件被复用时. 动态路由传参, 如如从 `/user/1` 跳到 `/user/2`
+			- 需要获取该钩子函数to的参数, 重新发送请求更新页面数据, 否则页面不刷新
+		- beforeRouteLeave/onBeforeRouteLeave(to, from, next)
+			- 导航离开该组建对应的路由时调用
+			- 适合表单的未保存更改的提示
+- router和route的区别
+	- router是VueRouter的实例对象, 包含了路由的跳转方法包括push, replace, go, back等
+	- route是当前路由信息对象, 当前url解析得到的信息, 如path, params, query等
+- params和query的区别
+	- 路由形式
+		- `params: /user/123`
+		- `query: /user?id=123`
+	- 路由配置
+		- params: 动态路由 `path: '/user/:id'`
+		- query: `path: '/user'`
+	- 路由跳转
+		- params: `router.push({name:'user',params:...}})` name跳转
+		- query: `router.push({path:'user',query:...})` path跳转
+	- 路由参数获取
+		- `route.params.id`
+		- `route.query.id`
+	- 参数都在url中, 刷新页面不会丢失
+- `scrollBehavior(to, from, savedPositon)`
+	- `savedPostion`可用于浏览器前进/后退时保存滚轮位置
+	- `top:0` 可用于跳转到新页面时滚动到顶部
 
 
 
