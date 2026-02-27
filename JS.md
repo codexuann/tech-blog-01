@@ -34,7 +34,7 @@
 	- Object.prototype.toString.call()
 		- 最精准, 可以判断任何数据类型
 		- 写法, 返回字符串
-		 `Object.prototype.toString.call(123) === '[object Number]`
+		 `Object.prototype.toString.call(123) === '[object Number]'`
 
 #### Number与Math
 - Math静态方法
@@ -130,8 +130,8 @@
 			- `let newArr = oldArr.concat([])`
 	- 深拷贝
 		- 手写递归
-		- 适合简单场景对数组/对象的深拷贝: `JSON.parse(JSON.stringifu(oldObj))`
-		- 第三方库: `import _ from 'ladash'; let newObj = _.cloneDeep(oldObj)`
+		- 适合简单场景对数组/对象的深拷贝: `JSON.parse(JSON.stringify(oldObj))`
+		- 第三方库: `import _ from 'lodash'; let newObj = _.cloneDeep(oldObj)`
 
 #### Set, Map
 - set
@@ -141,9 +141,9 @@
 - map
 	- 特点: 哈希表, 各种类型的值（包括对象、函数、DOM节点）都可以当作键
 	- 用法: `new Map(), map.set(key, value), map.delete(key), map.has(key), map.get(key), map.size`
-- weakSet/weakMap
-	- 把一个对象存入普通set/map中, 即使在所有地方都删除了这个对象, 垃圾回收仍不会回收这个对象, 因为其被set/map引用着
-	- weakSet/weakMap是弱引用, 如果一个地方只被 WeakMap 引用，而没有其他地方引用它，垃圾回收机制会无视 WeakMap 的引用，直接把这个对象回收掉，WeakMap 里对应的这一项也会自动消失
+- weakMap
+	- 把一个对象存入普通map中, 即使在所有地方都删除了这个对象, 垃圾回收仍不会回收这个对象, 因为其被map引用着
+	- weakMap是弱引用, 如果一个地方只被 WeakMap 引用，而没有其他地方引用它，垃圾回收机制会无视 WeakMap 的引用，直接把这个对象回收掉，WeakMap 里对应的这一项也会自动消失
 	- 特点: 
 		- key只能是对象, 不能是数字或者字符串
 		- 不能遍历, 没有forEach, 没有size. 因为里面东西可能随时会回收无法计数
@@ -274,6 +274,32 @@
 ```
 
 #### Promise
+###### 1. 痛点与介绍
+- 在之前, 处理多个依赖的异步请求时依靠回调函数层层嵌套, 产生回调地狱
+- Promise是异步编程的解决方案, 接收一个函数作为参数, 返回一个Promise实例. 可以通过链式调用的方法, 解决了回调地狱
+###### 2. Promise实例
+- 三大状态
+	- `pending`, `fulfilled`, `reject`
+	- 实例状态只能从 `pending` 变成 `fulfilled` 或 `rejected`, 状态一经改变, 就无法再次改变
+- 执行原理
+	- 在通过new创建Promise时, 需要传入一个回调函数 `executor`, 该函数会立即执行
+	- `executor` 函数需要传入两个回调函数 `resolve` 和 `reject`
+		- 调用 `resolve` 函数时, 会将状态设为 `fulfilled`, 将 `value`设为传来的参数, 并遍历执行Promise的 `then` 方法传入的回调函数
+		- 调用 `reject` 函数是, 会讲状态设为 `rejected`, 同时调用 `catch` 方法传入的回调函数
+	- `then`方法
+		- 参数接收两个回调函数 `onFulfilled` 和 `onRejected`, 回调函数中需要有return 值, 返回一个Promise.resolve(值)实例
+		- 解析then时, 会先判断当前状态
+			- 如果是 `pending`, 则将回调函数 `push` 到待执行任务队列等待 `resolve` 调用
+			- 如果是 `resolve`, 则将把value传到回调函数中并放入微任务队列
+	- `catch` 方法
+		- 捕获整个链之前所有未处理的 `reject`, 而不是在 `then` 里写第二个参数, 更简洁, 易于维护
+	- `finally` 方法
+		- 无论 Promise 最后是成功还是失败，都会执行。常用于关闭 Loading 动画或清理资源。
+###### 3. 静态方法
+- `Promise.all([p1, p2])`：“一损俱损”。待所有 Promise 成功才算成功（返回结果数组）；只要有一个失败，整体立刻失败并返回那个失败的原因。场景: 并发请求
+- `Promise.race([p1, p2])`：“谁跑得快听谁的”。不管成功还是失败，只要有第一个执行完毕的，整体的状态和结果就跟着它走。场景：给请求设置超时限制。
+- `Promise.allSettled([p1, p2])` (ES2020)：“大团圆”。不管各自是成功还是失败，它都会等所有人执行完，并返回一个数组，记录每一个 Promise 的最终状态和值。场景：多个无关请求，不希望一个报错影响其他请求的数据获取。
+- `Promise.any([p1, p2])` (ES2021)：“只要有一个成功就行”。第一个成功的返回结果；如果全部都失败了，才会报错 (AggregateError)。
 
 #### es6新特性
 
