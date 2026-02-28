@@ -300,29 +300,51 @@
 - `Promise.race([p1, p2])`：“谁跑得快听谁的”。不管成功还是失败，只要有第一个执行完毕的，整体的状态和结果就跟着它走。场景：给请求设置超时限制。
 - `Promise.allSettled([p1, p2])` (ES2020)：“大团圆”。不管各自是成功还是失败，它都会等所有人执行完，并返回一个数组，记录每一个 Promise 的最终状态和值。场景：多个无关请求，不希望一个报错影响其他请求的数据获取。
 - `Promise.any([p1, p2])` (ES2021)：“只要有一个成功就行”。第一个成功的返回结果；如果全部都失败了，才会报错 (AggregateError)。
+###### 4. 其他
+- catch和finally都返回Promise对象
+- then方法的值透传: then接收的参数必须是回调函数, 且回调函数需要return 值, 如果then接受的参数不是回调函数而是普通值, 会将上层的data直接跳过传入下一层
+- Promise状态解析机制 (resolve传值 与 then返回值)
+	- 如果 resolve 或 return 的是普通值，Promise 会直接把自身状态变为 fulfilled，并传递该值。
+	- 如果遇到的是 Promise 实例，当前 Promise 会暂停自身的解析，将状态的控制权完全移交给内部的这个 Promise。内部成功就跟着成功，内部失败就跟着失败。
+	- 如果遇到的是 Thenable 对象，Promise 底层会将其视为一个泛型的 Promise，主动执行它的 `then` 方法来同化状态
+###### 5. async/await
+- `async / await` 是 ES2017 (ES8) 引入的异步编程终极解决方案。 它是 Promise 加上 Generator（生成器）的语法糖。可以同步的书写习惯去写异步的代码
+- async 函数返回的是一个 Promise对象,如果在函数中 return 一个变量,async 会把这个直接量通过Promise.resolve() 封装成 Promise 对象。如果没有返回值,返回 Promise.resolve(undefined)
+- 当代码执行到 `await` 时，它会暂停当前 `async` 函数内部往下执行的代码，去等待后面的 Promise 有了结果, 同时跳出函数执行函数外的同步代码. 等 Promise 有了结果，`await` 会把后面的代码推入微任务队列，等待主线程空闲后再回来继续执行。
+- 错误处理机制也较Promise友好, 支持 `try/catch`
 
 #### es6新特性
 
 #### 浏览器API
-- ajax
-	- 是一种技术概念, 在不刷新整个页面的情况下, 与服务器完成数据交互并部分更新网页
-	- 基于 `XMLHttpRequest(XHR)`实现
-		- XHR api本身非常老旧, 架构不清晰, 处理多个串行的请求易陷入回调地狱的问题, 代码臃肿, 且不符合MVVM规范
-		- 需要 `JSON.parse`将字符串解析成JSON对象
-- Fetch
-	- 浏览器原生API, 基于Promise设计, 支持async/await, 告别回调地狱, 代码简洁明了
-	- 缺陷
-		- 对错误状态码不敏感, 如果服务器返回了 `404` 或 `500` 这种 HTTP 错误码, fetch依然判断为resolve, 需要手动调用 `res.ok`判断真实状态
-		- 解析json繁琐, 需要再进行一次 `res.json()`异步操作才能得到对象
-		- 无法直接监听请求进度, 而XHR可以; 不支持自动携带cookie; 不支持超时控制
-- Axios
-	- 是第三方库, 基于Promise, 在浏览器端, 底层包装的是XHR; 在node.js环境中, 底层包装的是http模块
-	- 优势
-		- 拦截器. 支持请求前或响应后的全局拦截
-			- 请求拦截器 `request.use()`: 携带token
-			- 响应拦截器 `response.use()`: 处理数据, 统一处理错误码
-		- 自动把服务端返回值转成JS对象
-		- 防御CSRF跨站请求伪造攻击; 自带timeout超时设置; 一套代码可以在浏览器运行也可在node.js运行
+###### 1. ajax
+- 是一种技术概念, 在不刷新整个页面的情况下, 与服务器完成数据交互并部分更新网页
+- 基于 `XMLHttpRequest(XHR)`实现
+	- XHR api本身非常老旧, 架构不清晰, 处理多个串行的请求易陷入回调地狱的问题, 代码臃肿, 且不符合MVVM规范
+	- 需要 `JSON.parse`将字符串解析成JSON对象
+###### 2. Fetch
+- 浏览器原生API, 基于Promise设计, 支持async/await, 告别回调地狱, 代码简洁明了
+- 缺陷
+	- 对错误状态码不敏感, 如果服务器返回了 `404` 或 `500` 这种 HTTP 错误码, fetch依然判断为resolve, 需要手动调用 `res.ok`判断真实状态
+	- 解析json繁琐, 需要再进行一次 `res.json()`异步操作才能得到对象
+	- 无法直接监听请求进度, 而XHR可以; 不支持自动携带cookie; 不支持超时控制
+###### 3. Axios
+- 是第三方库, 基于Promise, 在浏览器端, 底层包装的是XHR; 在node.js环境中, 底层包装的是http模块
+- 优势
+	- 拦截器. 支持请求前或响应后的全局拦截
+		- 请求拦截器 `request.use()`: 携带token
+		- 响应拦截器 `response.use()`: 处理数据, 统一处理错误码
+	- 自动把服务端返回值转成JS对象
+	- 防御CSRF跨站请求伪造攻击; 自带timeout超时设置; 一套代码可以在浏览器运行也可在node.js运行
+###### 4. router
+- Hash 模式 (`HashRouter`): `www.baidu.com/#/about`
+	- 利用 URL 里的 `#`（哈希值）。浏览器天生规定，`#` 后面的内容变化，绝不会触发网页重载。
+	- 优点: 兼容性极好，部署到服务器上极其简单，后端完全不需要做任何配置
+	- 缺点: 网址里带个 `#`，看起来很丑
+- History 模式 (`BrowserRouter`): `www.baidu.com/about`
+	- 利用 HTML5 的 `history.pushState` API 悄悄改网址, 但不会向服务器发送请求
+	- 优点: 网址干净漂亮，是目前企业级应用的首选
+	- 缺点: 如果用户在 `/about` 页面手动按了浏览器的 F5 刷新键, 浏览器会向服务器请求 `/about` 这个文件, 报404错误
+	- 必须让后端（Nginx）配合, 不管前端请求什么找不到的路径，统统把 `index.html` 返回给它 `location / {try_files $uri $uri/ /index.html; }`
 
 #### 杂
 - trim()
