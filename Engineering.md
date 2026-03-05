@@ -57,3 +57,35 @@
 	- 通过遍历 AST，找出这个模块依赖了哪些其他模块，然后递归这个步骤，最终画出一张完整的模块依赖图
 - 生成输出阶段
 	- 根据依赖图，把各个模块 (Module) 组装成一个个代码块（Chunk），然后再把这些 Chunk 转换成最终的文件（Assets）输出到硬盘上
+#### 4. 性能优化
+###### 优化构建速度 (npm run dev) (提升开发体验)
+- 开启持久化缓存 
+	- `cache: { type: 'filesystem' }`  
+	- 每次打包都有大量代码是没有修改的，完全可以把第一次翻译好的 AST 和编译结果存到硬盘里，下次直接拿来用, 二次构建速度倍速提升 (webpack5)
+- 开启多线程打包
+	- 将 `thread-loader` 放在极其耗时的 loader（比如 `babel-loader`）之前
+	- 由于 Node.js 是单线程的，面对几千个 JS 文件的 Babel 转换，它只能一个个排队干活。我们可以利用电脑的多核 CPU，让多个线程同时去翻译
+	- 开启多线程本身也耗时, 因此仅适合大型体积文件
+- 缩小 Loader 的处理范围
+	- 配置 `include` 和 `exclude` 
+	- 告诉 Webpack 哪些文件需要翻译，哪些绝对不需要翻译, 比如 `exclude: /node_modules/` 代表无需翻译
+###### 优化产物体积 (提升首屏加载速度)
+- 代码分割 (最重要)
+	- 痛点
+		- 如果不做分割，Webpack 会把所有的业务代码和第三方库（Vue、ECharts、Lodash）全部塞进一个巨大的 `app.js` 里。只要你改了一句业务代码，整个 `app.js` 的 Hash 值就会变，用户下次访问就必须重新下载好几 MB 的代码
+	- 方案
+		- 使用内置的 `SplitChunksPlugin`, 配置 `optimization.splitChunks`
+		- `chunks: 'all'` 默认只拆分异步的(懒加载), 开启同步异步都进行分割
+		- 将经常变动的业务代码，和几乎不怎么变动的第三方依赖 (node_modules)分成两组
+		- 配合 Output 里的 `filename: '[name].[contenthash].js'` 来使用, 打包出两个文件：`app.[hash1].js` (你的业务代码) 和 `chunk-vendors.[hash2].js` (第三方库). 只有业务代码的内容变了，所以 `app.js` 的 hash 会变；而 `node_modules` 里的 Vue 源码没变，所以 `chunk-vendors.js` 的 hash 依然保持不变
+	- 结果
+		- 用户再次访问时，浏览器会直接从本地强缓存中瞬间读取庞大的 `chunk-vendors.js`，只需要花极短的时间下载几十 KB 的新业务代码
+- 路由懒加载
+	- 结合 Vue/React 的异步组件，使用 ES6 的动态导入语法 `import('./About.vue')`。Webpack 遇到这个语法，就会自动把 `About.vue` 单独打包成一个 Chunk，只有当用户真正点击跳转到该页面时，浏览器才会去发起网络请求下载它
+- 抽离与压缩 CSS
+	- 痛点: 默认情况下，CSS 是被打包进 JS 里的，运行时再动态生成 `<style>` 标签插入页面。这不仅会让 JS 变大，还会导致页面闪烁（因为要等 JS 执行完才有样式）。
+	- 解决
+		- 用 **`MiniCssExtractPlugin`** 把 CSS 强行从 JS 里抽离出来，变成独立的 `.css` 文件。
+	    - 用 **`CssMinimizerWebpackPlugin`** 对 CSS 代码进行极度压缩（去掉空格、注释）。
+- 摇树优化
+	- 配置`optimization.usedExports: true` 并结合`package.json` 中 `"sideEffects": false` 利用 ES Module 的静态特性，剔除掉没有被使用的死代码。
