@@ -89,3 +89,18 @@
 	    - 用 **`CssMinimizerWebpackPlugin`** 对 CSS 代码进行极度压缩（去掉空格、注释）。
 - 摇树优化
 	- 配置`optimization.usedExports: true` 并结合`package.json` 中 `"sideEffects": false` 利用 ES Module 的静态特性，剔除掉没有被使用的死代码。
+#### 5. webpack5 新特性
+- 模块联邦
+	- 痛点: 之前两个项目想要共享一个组件, 只能发布到npm上然后分别安装, 组件每次更新, 两个项目都要重新打包发布
+	- 模块联邦: 模块联邦允许不同的 Webpack 构建在“运行时”互相动态共享代码。项目 A 可以直接通过 URL 远程加载项目 B 跑在服务器上的特定共享组件，就像引入本地文件一样丝滑。它让前端的“微服务架构”变得极其简单
+- 持久化缓存
+	- 想要提升二次打包速度, 之前需要借助第三方插件, 现在只需配置 `cache: { type: 'filesystem' }`
+- 资源模块
+	- 痛点: 以前处理图片、字体等文件，我们必须配置 `file-loader`、`url-loader`、`raw-loader`，不仅配置长，还容易冲突
+	- Webpack 5 内置了资源处理能力。你只需要写 `type: 'asset/resource'` 或者 `type: 'asset/inline'`，Webpack 就能自动帮你把小图片转成 base64，大图片输出成物理文件，彻底淘汰了那堆旧 Loade
+- 更智能的tree shaking
+	- webpack4只能识别顶层未使用的导出
+	- Webpack 5 支持了嵌套的 Tree Shaking。如果一个对象导出了属性 A 和属性 B，但在深层嵌套中只有 A 被用到了，Webpack 5 现在能精准地把 B 给摇掉
+#### 6. webpack 手脚架
+- 脚手架（比如 `Vue CLI`、`Create React App`）本质上是一套‘预设好最佳实践’(`plugin`, `loader` 等) 的 Webpack/Vite 包装盒
+- 即便手脚架配置好, 依然要做代码分割 (antd, reactflow,vant) , 按需引入 (antd, vant) 等配置
