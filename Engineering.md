@@ -121,3 +121,22 @@
 - 解决
 	- 引入预构建机制, 第一次启动vite时, 把你引入的那些庞大的第三方依赖（如 React、Vue、Lodash），预先打包成一个单独的 ESM 文件存放在 `.vite/deps` 缓存目录里
 	- Vite 用来做预构建的工具是 `esbuild`。`esbuild` 是用 Go 语言编写的, 比普通的打包工具快10倍以上
+#### 3. 热更新 (HMR)
+- 你改了哪个文件，Vite 就只重新编译那一个文件，并通过 WebSocket 让浏览器去重新请求它。它的时间复杂度是 O(1)，和项目的总大小完全无关。所以一万个模块的项目，热更新依然是毫秒级。
+- 对比webpack: 虽然也是发送对应文件的补丁, 但在计算的时间复杂度上是不一样的, 当某个文件修改时, 需要重新计算在依赖图的影响, 重新重新计算 Hash，重新生成这个模块所在 Chunk 的补丁，然后再推送给浏览器。会随着项目越来越大而变慢
+#### 4. 生产环境: Rollup 打包
+- vite只在开发环境中使用, 生产环境使用Rollup
+- 因为在真实的线上生产环境中，用户的网络是不可控的（不像本地开发时网络延迟为 0）。如果我们在生产环境依然用未打包的 ESM，浏览器遇到多层级的 `import` 就会发起大量的串行 HTTP 请求（瀑布流），这会导致首屏加载极慢。
+- 所以在生产环境，Vite 选择了底层架构非常成熟、天生对 ESM 极度友好、且 Tree-Shaking 能力极强的 Rollup 来进行代码分割和打包，以获得最佳的线上性能。
+#### 5. vite配置
+- `resolve.alias` : 会配置 `@` 指向 `src` 目录
+- `server.proxy` : 反向代理, 解决跨域问题
+	- `target: env.VITE_API_URL`
+	- 通过 Vite 导出的 `loadEnv` 工具函数，手动去解析 `.env` 文件，才能在配置文件里动态读取代理地址和公用路径
+- `Plugins` 插件
+	- 比如Vue 项目引入 `@vitejs/plugin-vue`，React 引入 `@vitejs/plugin-react`
+	- 配置 `unplugin-auto-import`（自动导入 Vue/React 的 API 如 `ref`, `useState`）和 `unplugin-vue-components`（自动按需导入 Element-Plus 或 Vant 等组件库）。这不仅能极大减少冗余代码，还能完美配合 Tree Shaking。”
+- `build` 生产环境构建优化
+	- `rollupOptions.manualChunks`: 代码分割, 把庞大的第三方库（如 Vue 核心、ECharts、Lodash）单独剥离出来，避免一个 vendor.js 过大，极致利用浏览器长缓存
+	- `esbuild.drop`: 在生产环境打包时，自动剥离掉所有的 `console.log` 和 `debugger`，既减小体积又防泄漏
+	- `rollupOptions.output.assetFileNames`: 静态资源分类输出, 把打包后的图片、CSS、JS 分门别类地放到单独的文件夹（如 `img/`, `css/`）里，让产物目录干净清爽
